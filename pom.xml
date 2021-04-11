@@ -124,6 +124,7 @@
     <cdap.client.version>1.4.0</cdap.client.version>
     <commons.cli.version>1.2</commons.cli.version>
     <commons.compress.version>1.18</commons.compress.version>
+    <commons-collections.version>3.2.2</commons-collections.version>
     <fastutil.version>6.5.6</fastutil.version>
     <findbugs.jsr305.version>2.0.1</findbugs.jsr305.version>
     <geronimo.version>2.0.0</geronimo.version>
@@ -479,6 +480,11 @@
         <version>${commons.cli.version}</version>
       </dependency>
       <dependency>
+        <groupId>commons-collections</groupId>
+        <artifactId>commons-collections</artifactId>
+        <version>${commons-collections.version}</version>
+      </dependency>
+      <dependency>
         <groupId>org.apache.twill</groupId>
         <artifactId>twill-common</artifactId>
         <version>${twill.version}</version>
@@ -596,6 +602,10 @@
         <artifactId>hadoop-common</artifactId>
         <version>${hadoop.version}</version>
         <exclusions>
+          <exclusion>
+            <groupId>commons-collections</groupId>
+            <artifactId>commons-collections</artifactId>
+          </exclusion>
           <exclusion>
             <groupId>commons-logging</groupId>
             <artifactId>commons-logging</artifactId>
@@ -854,6 +864,10 @@
           <exclusion>
             <groupId>commons-logging</groupId>
             <artifactId>commons-logging</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>commons-collections</groupId>
+            <artifactId>commons-collections</artifactId>
           </exclusion>
         </exclusions>
       </dependency>
