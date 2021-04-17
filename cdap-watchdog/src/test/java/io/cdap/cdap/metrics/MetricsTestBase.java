@@ -38,6 +38,7 @@ import io.cdap.cdap.internal.io.ReflectionSchemaGenerator;
 import io.cdap.cdap.messaging.MessagingService;
 import io.cdap.cdap.messaging.guice.MessagingServerRuntimeModule;
 import io.cdap.cdap.metrics.process.MessagingMetricsProcessorManagerService;
+import io.cdap.cdap.metrics.process.loader.MockMetricsWriterModule;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -98,6 +99,7 @@ public abstract class MetricsTestBase {
     modules.add(new ConfigModule(cConf));
     modules.add(new InMemoryDiscoveryModule());
     modules.add(new MessagingServerRuntimeModule().getInMemoryModules());
+    modules.add(new MockMetricsWriterModule());
     modules.add(new AbstractModule() {
       @Override
       protected void configure() {

@@ -15,16 +15,14 @@
  */
 package io.cdap.cdap.api.metrics;
 
-import com.google.common.base.Objects;
-
 /**
  * Carries the "raw" emitted metric data point: metric name, type, and value
  */
 public class MetricValue {
 
-  String name;
-  MetricType type;
-  long value;
+  private String name;
+  private MetricType type;
+  private long value;
 
   public MetricValue (String name, MetricType type, long value) {
     this.name = name;
@@ -46,10 +44,10 @@ public class MetricValue {
 
   @Override
   public String toString() {
-    return Objects.toStringHelper(this)
-      .add("name", name)
-      .add("type", type)
-      .add("value", value)
-      .toString();
+    return "MetricValue{" +
+      "name='" + name + '\'' +
+      ", type=" + type +
+      ", value=" + value +
+      '}';
   }
 }

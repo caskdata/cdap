@@ -50,6 +50,7 @@ import io.cdap.cdap.metrics.guice.MetricsStoreModule;
 import io.cdap.cdap.metrics.process.MessagingMetricsProcessorServiceFactory;
 import io.cdap.cdap.metrics.process.MetricsAdminSubscriberService;
 import io.cdap.cdap.metrics.process.MetricsProcessorStatusService;
+import io.cdap.cdap.metrics.process.loader.MetricsWriterModule;
 import io.cdap.cdap.metrics.runtime.MessagingMetricsProcessorRuntimeService;
 import io.cdap.cdap.proto.id.NamespaceId;
 import io.cdap.cdap.security.auth.context.AuthenticationContextModules;
@@ -129,6 +130,7 @@ public final class MetricsProcessorTwillRunnable extends AbstractMasterTwillRunn
       new AuditModule(),
       new AuthorizationEnforcementModule().getDistributedModules(),
       new AuthenticationContextModules().getMasterModule(),
+      new MetricsWriterModule(),
       new AbstractModule() {
         @Override
         protected void configure() {

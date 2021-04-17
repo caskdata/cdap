@@ -16,14 +16,14 @@
 
 package io.cdap.cdap.api.metrics;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.cdap.cdap.api.dataset.lib.cube.TimeValue;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Represents a single time series defined by a metric name and set of tag values.
@@ -35,8 +35,8 @@ public final class MetricTimeSeries {
 
   public MetricTimeSeries(String metricName, Map<String, String> tagValues, List<TimeValue> timeValues) {
     this.metricName = metricName;
-    this.tagValues = ImmutableMap.copyOf(tagValues);
-    this.timeValues = ImmutableList.copyOf(timeValues);
+    this.tagValues = Collections.unmodifiableMap(new HashMap<>(tagValues));
+    this.timeValues = Collections.unmodifiableList(new ArrayList<>(timeValues));
   }
 
   public String getMetricName() {
@@ -62,22 +62,22 @@ public final class MetricTimeSeries {
 
     MetricTimeSeries that = (MetricTimeSeries) o;
 
-    return Objects.equal(metricName, that.metricName) &&
-      Objects.equal(tagValues, that.tagValues) &&
-      Objects.equal(timeValues, that.timeValues);
+    return Objects.equals(metricName, that.metricName) &&
+      Objects.equals(tagValues, that.tagValues) &&
+      Objects.equals(timeValues, that.timeValues);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(metricName, tagValues, timeValues);
+    return Objects.hash(metricName, tagValues, timeValues);
   }
-
 
   @Override
   public String toString() {
-    return Objects.toStringHelper(this)
-      .add("metricName", metricName)
-      .add("tagValues", Joiner.on(",").withKeyValueSeparator(":").useForNull("null").join(tagValues))
-      .add("timeValues", Joiner.on(",").join(timeValues)).toString();
+    return "MetricTimeSeries{" +
+      "metricName='" + metricName + '\'' +
+      ", tagValues=" + tagValues +
+      ", timeValues=" + timeValues +
+      '}';
   }
 }

@@ -174,6 +174,15 @@
     </description>
   </property>
 
+  <property>
+    <name>metrics.writer.extensions.dir</name>
+    <value>ext/metricswriters</value>
+    <description>
+      Semicolon-separated list of local directories on the CDAP Master that
+      are scanned for metrics writer extensions
+    </description>
+  </property>
+
   <!-- Operational Stats Configuration -->
   <property>
     <name>operational.stats.extensions.dir</name>

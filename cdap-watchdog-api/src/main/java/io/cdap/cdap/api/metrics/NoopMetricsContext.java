@@ -16,8 +16,8 @@
 
 package io.cdap.cdap.api.metrics;
 
-import com.google.common.collect.ImmutableMap;
-
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -28,21 +28,23 @@ public final class NoopMetricsContext implements MetricsContext {
   private final Map<String, String> tags;
 
   public NoopMetricsContext() {
-    this(ImmutableMap.<String, String>of());
+    this(Collections.emptyMap());
   }
 
   public NoopMetricsContext(Map<String, String> tags) {
-    this.tags = ImmutableMap.copyOf(tags);
+    this.tags = Collections.unmodifiableMap(new HashMap<>(tags));
   }
 
   @Override
   public MetricsContext childContext(Map<String, String> tags) {
-    return new NoopMetricsContext(ImmutableMap.<String, String>builder().putAll(this.tags).putAll(tags).build());
+    Map<String, String> context = new HashMap<>(this.tags);
+    context.putAll(tags);
+    return new NoopMetricsContext(context);
   }
 
   @Override
   public MetricsContext childContext(String tagName, String tagValue) {
-    return childContext(ImmutableMap.of(tagName, tagValue));
+    return childContext(Collections.singletonMap(tagName, tagValue));
   }
 
   @Override

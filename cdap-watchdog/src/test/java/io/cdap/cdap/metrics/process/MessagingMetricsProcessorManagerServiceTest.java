@@ -34,6 +34,7 @@ import io.cdap.cdap.data2.datafabric.dataset.service.DatasetService;
 import io.cdap.cdap.data2.datafabric.dataset.service.executor.DatasetOpExecutorService;
 import io.cdap.cdap.internal.io.DatumReaderFactory;
 import io.cdap.cdap.internal.io.SchemaGenerator;
+import io.cdap.cdap.metrics.process.loader.MetricsWriterProvider;
 import io.cdap.cdap.metrics.store.MetricDatasetFactory;
 import io.cdap.cdap.spi.data.StructuredTableAdmin;
 import io.cdap.cdap.spi.data.table.StructuredTableRegistry;
@@ -93,6 +94,7 @@ public class MessagingMetricsProcessorManagerServiceTest extends MetricsProcesso
                                                     messagingService,
                                                     injector.getInstance(SchemaGenerator.class),
                                                     injector.getInstance(DatumReaderFactory.class), metricStore,
+                                                    injector.getInstance(MetricsWriterProvider.class),
                                                     partitions, new NoopMetricsContext(), 50, 0);
       messagingMetricsProcessorManagerService.startAndWait();
 

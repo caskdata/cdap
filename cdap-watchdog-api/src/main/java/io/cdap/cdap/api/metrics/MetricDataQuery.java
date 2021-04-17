@@ -16,13 +16,11 @@
 
 package io.cdap.cdap.api.metrics;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableMap;
 import io.cdap.cdap.api.dataset.lib.cube.AggregationFunction;
 import io.cdap.cdap.api.dataset.lib.cube.AggregationOption;
 import io.cdap.cdap.api.dataset.lib.cube.Interpolator;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -71,7 +69,7 @@ public final class MetricDataQuery {
   public MetricDataQuery(long startTs, long endTs, int resolution,
                          String metricName, AggregationFunction func,
                          Map<String, String> sliceByTagValues, List<String> groupByTags) {
-    this(startTs, endTs, resolution, Integer.MAX_VALUE, ImmutableMap.of(metricName, func), sliceByTagValues,
+    this(startTs, endTs, resolution, Integer.MAX_VALUE, Collections.singletonMap(metricName, func), sliceByTagValues,
          groupByTags, null);
   }
 
@@ -154,12 +152,16 @@ public final class MetricDataQuery {
 
   @Override
   public String toString() {
-    return Objects.toStringHelper(this)
-      .add("startTs", startTs)
-      .add("endTs", endTs)
-      .add("resolution", resolution)
-      .add("metrics", metrics)
-      .add("sliceByTags", Joiner.on(",").withKeyValueSeparator(":").useForNull("null").join(sliceByTagValues))
-      .add("groupByTags", Joiner.on(",").join(groupByTags)).toString();
+    return "MetricDataQuery{" +
+      "startTs=" + startTs +
+      ", endTs=" + endTs +
+      ", resolution=" + resolution +
+      ", limit=" + limit +
+      ", metrics=" + metrics +
+      ", sliceByTagValues=" + sliceByTagValues +
+      ", groupByTags=" + groupByTags +
+      ", aggregationOption=" + aggregationOption +
+      ", interpolator=" + interpolator +
+      '}';
   }
 }

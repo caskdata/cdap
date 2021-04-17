@@ -38,6 +38,7 @@ import io.cdap.cdap.metrics.guice.MetricsStoreModule;
 import io.cdap.cdap.metrics.process.MessagingMetricsProcessorServiceFactory;
 import io.cdap.cdap.metrics.process.MetricsAdminSubscriberService;
 import io.cdap.cdap.metrics.process.MetricsProcessorStatusService;
+import io.cdap.cdap.metrics.process.loader.MetricsWriterModule;
 import io.cdap.cdap.metrics.query.MetricsQueryService;
 import io.cdap.cdap.metrics.store.MetricsCleanUpService;
 import io.cdap.cdap.proto.id.NamespaceId;
@@ -76,7 +77,8 @@ public class MetricsServiceMain extends AbstractServiceMain<EnvironmentOptions> 
       new FactoryModuleBuilder().build(MessagingMetricsProcessorServiceFactory.class),
       new MetricsProcessorStatusServiceModule(),
       new MetricsHandlerModule(),
-      new DFSLocationModule()
+      new DFSLocationModule(),
+      new MetricsWriterModule()
     );
   }
 

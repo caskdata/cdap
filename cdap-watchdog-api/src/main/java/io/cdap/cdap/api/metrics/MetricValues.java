@@ -16,11 +16,10 @@
 
 package io.cdap.cdap.api.metrics;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
-
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -36,16 +35,14 @@ public class MetricValues {
    */
   private final long timestamp;
 
-  public MetricValues(Map<String, String> tags, long timestamp, Collection<MetricValue> metrics) {
-    this.tags = tags;
-    this.timestamp = timestamp;
-    this.metrics = metrics;
+  public MetricValues(Map<String, String> tags, String name, long timestamp, long value, MetricType type) {
+    this(tags, timestamp, Collections.singleton(new MetricValue(name, type, value)));
   }
 
-  public MetricValues(Map<String, String> tags, String name, long timestamp, long value, MetricType type) {
-    this.tags = tags;
+  public MetricValues(Map<String, String> tags, long timestamp, Collection<MetricValue> metrics) {
+    this.tags = Collections.unmodifiableMap(new HashMap<>(tags));
     this.timestamp = timestamp;
-    this.metrics = ImmutableList.of(new MetricValue(name, type, value));
+    this.metrics = Collections.unmodifiableCollection(new ArrayList<>(metrics));
   }
 
   public Map<String, String> getTags() {
@@ -62,10 +59,10 @@ public class MetricValues {
 
   @Override
   public String toString() {
-    return Objects.toStringHelper(this)
-      .add("metrics", Joiner.on(",").withKeyValueSeparator(":").join(tags))
-      .add("metrics", Joiner.on(",").join(metrics))
-      .add("timestamp", timestamp)
-      .toString();
+    return "MetricValues{" +
+      "tags=" + tags +
+      ", metrics=" + metrics +
+      ", timestamp=" + timestamp +
+      '}';
   }
 }
