@@ -123,9 +123,10 @@ function generateEnumType(children: IOrderedChildren, currentNode: INode, nullab
 function generateRecordType(children: IOrderedChildren, currentNode: INode, nullable: boolean) {
   const finalType: IRecordField = {
     type: AvroSchemaTypesEnum.RECORD,
-    name: currentNode.name || `name-${uuidV4()}`,
+    name: currentNode.name || `name_${uuidV4()}`,
     fields: [],
   };
+  finalType.name = finalType.name.replace(/-/g, '');
   const { typeProperties = {} } = currentNode;
   if (typeProperties.doc) {
     finalType.doc = typeProperties.doc;
