@@ -1,5 +1,5 @@
 /*
- * Copyright © 2016 Cask Data, Inc.
+ * Copyright © 2016-2021 Cask Data, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -18,15 +18,15 @@ package io.cdap.cdap.messaging.store.leveldb;
 
 import com.google.common.base.Preconditions;
 import io.cdap.cdap.api.common.Bytes;
-import io.cdap.cdap.api.dataset.lib.AbstractCloseableIterator;
 import io.cdap.cdap.api.dataset.lib.CloseableIterator;
 import io.cdap.cdap.messaging.MessagingUtils;
 import io.cdap.cdap.messaging.TopicMetadata;
 import io.cdap.cdap.messaging.store.AbstractMessageTable;
-import io.cdap.cdap.messaging.store.ImmutableMessageTableEntry;
 import io.cdap.cdap.messaging.store.MessageTable;
+import io.cdap.cdap.messaging.store.MessageTableKey;
 import io.cdap.cdap.messaging.store.RawMessageTableEntry;
-import io.cdap.cdap.proto.id.TopicId;
+import io.cdap.cdap.messaging.store.RollbackRequest;
+import io.cdap.cdap.messaging.store.ScanRequest;
 import org.iq80.leveldb.DB;
 import org.iq80.leveldb.DBException;
 import org.iq80.leveldb.WriteBatch;
@@ -34,14 +34,24 @@ import org.iq80.leveldb.WriteOptions;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
 /**
  * LevelDB implementation of {@link MessageTable}.
+ *
+ * This "Table" is actually partitioned into multiple LevelDB tables. Each underlying table stores
+ * messages published within a specific time range. Table names are of the form:
+ *
+ *   [namespace].[topic].[generation].[publish start (inclusive)][publish end (exclusive)]
+ *
+ * When a write occurs, messages are written to the correct table based on the their publish timestamp.
+ * When a read is performed, the start and end timestamps are examined to determine if multiple underlying
+ * levelDB tables need to be read.
  */
 final class LevelDBMessageTable extends AbstractMessageTable {
   private static final WriteOptions WRITE_OPTIONS = new WriteOptions().sync(true);
@@ -64,83 +74,93 @@ final class LevelDBMessageTable extends AbstractMessageTable {
     }
   }
 
-  private final DB levelDB;
-  private final TopicMetadata topicMetadata;
+  private final LevelDBPartitionManager partitionManager;
 
-  LevelDBMessageTable(DB levelDB, TopicMetadata topicMetadata) {
-    this.levelDB = levelDB;
-    this.topicMetadata = topicMetadata;
-  }
-
-  private void checkTopic(TopicId topicId, int generation) {
-    Preconditions.checkArgument(this.topicMetadata.getTopicId().equals(topicId), "Not allowed to use table with a " +
-      "different topic id. Table's topic Id: {}. Specified topic id: {}", this.topicMetadata.getTopicId(), topicId);
-    Preconditions.checkArgument(this.topicMetadata.getGeneration() == generation, "Not allowed to use table with " +
-                                  "a different generation id. Table's generation: {}. Specified generation: {}",
-                                this.topicMetadata.getGeneration(), generation);
+  LevelDBMessageTable(LevelDBPartitionManager partitionManager) {
+    this.partitionManager = partitionManager;
   }
 
   @Override
-  protected CloseableIterator<RawMessageTableEntry> read(byte[] startRow, byte[] stopRow) {
-    final DBScanIterator iterator = new DBScanIterator(levelDB, startRow, stopRow);
-    final RawMessageTableEntry tableEntry = new RawMessageTableEntry();
-    return new AbstractCloseableIterator<RawMessageTableEntry>() {
-      private boolean closed = false;
-
-      @Override
-      protected RawMessageTableEntry computeNext() {
-        if (closed || (!iterator.hasNext())) {
-          return endOfData();
-        }
-
-        Map.Entry<byte[], byte[]> row = iterator.next();
-        Map<String, byte[]> columns = decodeValue(row.getValue());
-        return tableEntry.set(row.getKey(), columns.get(TX_COL), columns.get(PAYLOAD_COL));
-      }
-
-      @Override
-      public void close() {
-        try {
-          iterator.close();
-        } finally {
-          endOfData();
-          closed = true;
-        }
-      }
+  protected CloseableIterator<RawMessageTableEntry> scan(ScanRequest scanRequest) throws IOException {
+    Collection<LevelDBPartition> partitions = partitionManager.getPartitions(scanRequest.getStartTime());
+    if (partitions.isEmpty()) {
+      return CloseableIterator.empty();
+    }
+    RawMessageTableEntry tableEntry = new RawMessageTableEntry();
+    TopicMetadata topicMetadata = scanRequest.getTopicMetadata();
+    byte[] topic = MessagingUtils.toDataKeyPrefix(topicMetadata.getTopicId(), topicMetadata.getGeneration());
+    MessageTableKey messageTableKey = MessageTableKey.fromTopic(topic);
+    BiFunction<byte[], byte[], RawMessageTableEntry> decodeFunction = (key, value) -> {
+      Map<String, byte[]> columns = decodeValue(value);
+      messageTableKey.setFromRowKey(key);
+      return tableEntry.set(messageTableKey, columns.get(TX_COL), columns.get(PAYLOAD_COL));
     };
+
+    return new PartitionedDBScanIterator<>(partitions.iterator(), scanRequest.getStartRow(), scanRequest.getStopRow(),
+                                           decodeFunction);
   }
 
   @Override
   protected void persist(Iterator<RawMessageTableEntry> entries) throws IOException {
-    try (WriteBatch writeBatch = levelDB.createWriteBatch()) {
-      while (entries.hasNext()) {
-        RawMessageTableEntry entry = entries.next();
-        byte[] rowKey = entry.getKey();
-        // LevelDB doesn't make copies, and since we reuse RawMessageTableEntry object, we need to create copies.
-        writeBatch.put(Arrays.copyOf(rowKey, rowKey.length), encodeValue(entry.getTxPtr(), entry.getPayload()));
+    // entries are sorted by publish time. accumulate all entries for a partition into a batch and
+    // write the batch when the next entry is outside of the current partition
+    LevelDBPartition partition = null;
+    WriteBatch writeBatch = null;
+    while (entries.hasNext()) {
+      RawMessageTableEntry entry = entries.next();
+      byte[] rowKey = entry.getKey().getRowKey();
+      long publishTime = entry.getKey().getPublishTimestamp();
+
+      // check if this entry belongs in a different partition. If so, write the current batch.
+      if (partition == null || publishTime < partition.getStartTime() || publishTime >= partition.getEndTime()) {
+        if (partition != null) {
+          try {
+            partition.getLevelDB().write(writeBatch, WRITE_OPTIONS);
+          } finally {
+            writeBatch.close();
+          }
+        }
+        partition = partitionManager.getOrCreatePartition(publishTime);
+        writeBatch = partition.getLevelDB().createWriteBatch();
       }
-      levelDB.write(writeBatch, WRITE_OPTIONS);
-    } catch (DBException ex) {
-      throw new IOException(ex);
+
+      // LevelDB doesn't make copies, and since we reuse RawMessageTableEntry object, we need to create copies.
+      writeBatch.put(Arrays.copyOf(rowKey, rowKey.length), encodeValue(entry.getTxPtr(), entry.getPayload()));
+    }
+
+    if (partition != null) {
+      try {
+        partition.getLevelDB().write(writeBatch, WRITE_OPTIONS);
+      } finally {
+        writeBatch.close();
+      }
     }
   }
 
   @Override
-  protected void rollback(byte[] startKey, byte[] stopKey, byte[] txWritePtr) throws IOException {
-    WriteBatch writeBatch = levelDB.createWriteBatch();
-    try (CloseableIterator<Map.Entry<byte[], byte[]>> rowIterator = new DBScanIterator(levelDB, startKey, stopKey)) {
-      while (rowIterator.hasNext()) {
-        Map.Entry<byte[], byte[]> rowValue = rowIterator.next();
-        byte[] value = rowValue.getValue();
-        Map<String, byte[]> columns = decodeValue(value);
-        writeBatch.put(rowValue.getKey(), encodeValue(txWritePtr, columns.get(PAYLOAD_COL)));
-      }
-    }
+  protected void rollback(RollbackRequest rollbackRequest) throws IOException {
+    Collection<LevelDBPartition> partitions = partitionManager.getPartitions(rollbackRequest.getStartTime(),
+                                                                             rollbackRequest.getStopTime());
 
-    try {
-      levelDB.write(writeBatch, WRITE_OPTIONS);
-    } catch (DBException ex) {
-      throw new IOException(ex);
+    for (LevelDBPartition partition : partitions) {
+      DB levelDB = partition.getLevelDB();
+      WriteBatch writeBatch = partition.getLevelDB().createWriteBatch();
+
+      try (CloseableIterator<Map.Entry<byte[], byte[]>> rowIterator =
+             new DBScanIterator(levelDB, rollbackRequest.getStartRow(), rollbackRequest.getStopRow())) {
+        while (rowIterator.hasNext()) {
+          Map.Entry<byte[], byte[]> rowValue = rowIterator.next();
+          byte[] value = rowValue.getValue();
+          Map<String, byte[]> columns = decodeValue(value);
+          writeBatch.put(rowValue.getKey(), encodeValue(rollbackRequest.getTxWritePointer(), columns.get(PAYLOAD_COL)));
+        }
+      }
+
+      try {
+        levelDB.write(writeBatch, WRITE_OPTIONS);
+      } catch (DBException ex) {
+        throw new IOException(ex);
+      }
     }
   }
 
@@ -148,50 +168,6 @@ final class LevelDBMessageTable extends AbstractMessageTable {
   public void close() {
     // This method has to be an no-op instead of closing the underlying LevelDB object
     // This is because a given LevelDB object instance is shared within the same JVM
-  }
-
-  /**
-   * Delete messages of a {@link TopicId} that has exceeded the TTL or if it belongs to an older generation
-   *
-   * @param currentTime current timestamp
-   * @throws IOException error occurred while trying to delete a row in LevelDB
-   */
-  void pruneMessages(long currentTime) throws IOException {
-    WriteBatch writeBatch = levelDB.createWriteBatch();
-    long ttlInMs = TimeUnit.SECONDS.toMillis(topicMetadata.getTTL());
-    byte[] startRow = MessagingUtils.toDataKeyPrefix(topicMetadata.getTopicId(),
-                                                     Integer.parseInt(MessagingUtils.Constants.DEFAULT_GENERATION));
-    byte[] stopRow = Bytes.stopKeyForPrefix(startRow);
-
-    try (CloseableIterator<Map.Entry<byte[], byte[]>> rowIterator = new DBScanIterator(levelDB, startRow, stopRow)) {
-      while (rowIterator.hasNext()) {
-        Map.Entry<byte[], byte[]> entry = rowIterator.next();
-        MessageTable.Entry messageTableEntry = new ImmutableMessageTableEntry(entry.getKey(), null, null);
-
-        int dataGeneration = messageTableEntry.getGeneration();
-        int currGeneration = topicMetadata.getGeneration();
-        checkTopic(topicMetadata.getTopicId(), topicMetadata.getGeneration());
-        if (MessagingUtils.isOlderGeneration(dataGeneration, currGeneration)) {
-          writeBatch.delete(entry.getKey());
-          continue;
-        }
-
-        if ((dataGeneration == Math.abs(currGeneration)) &&
-          ((currentTime - messageTableEntry.getPublishTimestamp()) > ttlInMs)) {
-          writeBatch.delete(entry.getKey());
-        } else {
-          // terminate scanning table once an entry with publish time after TTL is found, to avoid scanning whole table,
-          // since the entries are sorted by time.
-          break;
-        }
-      }
-    }
-
-    try {
-      levelDB.write(writeBatch, WRITE_OPTIONS);
-    } catch (DBException ex) {
-      throw new IOException(ex);
-    }
   }
 
   // Encoding:
@@ -239,4 +215,5 @@ final class LevelDBMessageTable extends AbstractMessageTable {
     }
     return data;
   }
+
 }

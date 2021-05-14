@@ -47,6 +47,7 @@ public class LevelDBTTLCleanupTest extends DataCleanupTest {
     CConfiguration cConf = CConfiguration.create();
     cConf.set(Constants.MessagingSystem.LOCAL_DATA_CLEANUP_FREQUENCY, Integer.toString(CLEANUP_PERIOD_IN_SECS));
     cConf.set(Constants.CFG_LOCAL_DATA_DIR, tmpFolder.newFolder().getAbsolutePath());
+    cConf.set(Constants.MessagingSystem.LOCAL_DATA_PARTITION_SECONDS, Integer.toString(1));
     tableFactory = new LevelDBTableFactory(cConf);
   }
 

@@ -23,9 +23,13 @@ import io.cdap.cdap.data2.util.hbase.PutBuilder;
 import io.cdap.cdap.hbase.wd.AbstractRowKeyDistributor;
 import io.cdap.cdap.hbase.wd.DistributedScanner;
 import io.cdap.cdap.messaging.MessagingUtils;
+import io.cdap.cdap.messaging.TopicMetadata;
 import io.cdap.cdap.messaging.store.AbstractMessageTable;
 import io.cdap.cdap.messaging.store.MessageTable;
+import io.cdap.cdap.messaging.store.MessageTableKey;
 import io.cdap.cdap.messaging.store.RawMessageTableEntry;
+import io.cdap.cdap.messaging.store.RollbackRequest;
+import io.cdap.cdap.messaging.store.ScanRequest;
 import org.apache.hadoop.hbase.client.BufferedMutator;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
@@ -70,13 +74,16 @@ final class HBaseMessageTable extends AbstractMessageTable {
   }
 
   @Override
-  protected CloseableIterator<RawMessageTableEntry> read(byte[] startRow, byte[] stopRow) throws IOException {
+  protected CloseableIterator<RawMessageTableEntry> scan(ScanRequest scanRequest) throws IOException {
     Scan scan = tableUtil.buildScan()
-      .setStartRow(startRow)
-      .setStopRow(stopRow)
+      .setStartRow(scanRequest.getStartRow())
+      .setStopRow(scanRequest.getStopRow())
       .setCaching(scanCacheRows)
       .build();
 
+    TopicMetadata topicMetadata = scanRequest.getTopicMetadata();
+    byte[] topic = MessagingUtils.toDataKeyPrefix(topicMetadata.getTopicId(), topicMetadata.getGeneration());
+    MessageTableKey messageTableKey = MessageTableKey.fromTopic(topic);
     try {
       final ResultScanner scanner = DistributedScanner.create(table, scan, rowKeyDistributor, scanExecutor);
       final RawMessageTableEntry tableEntry = new RawMessageTableEntry();
@@ -99,7 +106,9 @@ final class HBaseMessageTable extends AbstractMessageTable {
             return endOfData();
           }
 
-          return tableEntry.set(rowKeyDistributor.getOriginalKey(result.getRow()),
+          byte[] originalKey = rowKeyDistributor.getOriginalKey(result.getRow());
+          messageTableKey.setFromRowKey(originalKey);
+          return tableEntry.set(messageTableKey,
                                 result.getValue(columnFamily, TX_COL),
                                 result.getValue(columnFamily, PAYLOAD_COL));
         }
@@ -124,7 +133,7 @@ final class HBaseMessageTable extends AbstractMessageTable {
     List<Put> batchPuts = new ArrayList<>();
     while (entries.hasNext()) {
       RawMessageTableEntry entry = entries.next();
-      PutBuilder putBuilder = tableUtil.buildPut(rowKeyDistributor.getDistributedKey(entry.getKey()));
+      PutBuilder putBuilder = tableUtil.buildPut(rowKeyDistributor.getDistributedKey(entry.getKey().getRowKey()));
       if (entry.getTxPtr() != null) {
         putBuilder.add(columnFamily, TX_COL, entry.getTxPtr());
       }
@@ -146,10 +155,10 @@ final class HBaseMessageTable extends AbstractMessageTable {
   }
 
   @Override
-  public void rollback(byte[] startKey, byte[] stopKey, byte[] txWritePtr) throws IOException {
+  public void rollback(RollbackRequest rollbackRequest) throws IOException {
     Scan scan = tableUtil.buildScan()
-      .setStartRow(startKey)
-      .setStopRow(stopKey)
+      .setStartRow(rollbackRequest.getStartRow())
+      .setStopRow(rollbackRequest.getStopRow())
       .setCaching(scanCacheRows)
       .build();
 
@@ -158,7 +167,7 @@ final class HBaseMessageTable extends AbstractMessageTable {
       for (Result result : scanner) {
         // No need to turn the key back to the original row key because we want to put with the actual row key
         PutBuilder putBuilder = tableUtil.buildPut(result.getRow());
-        putBuilder.add(columnFamily, TX_COL, txWritePtr);
+        putBuilder.add(columnFamily, TX_COL, rollbackRequest.getTxWritePointer());
         batchPuts.add(putBuilder.build());
       }
     }

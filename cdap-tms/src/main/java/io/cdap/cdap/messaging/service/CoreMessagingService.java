@@ -219,6 +219,7 @@ public class CoreMessagingService extends AbstractIdleService implements Messagi
 
   @Override
   protected void startUp() throws Exception {
+    tableFactory.init();
     Queue<TopicId> asyncCreationTopics = new LinkedList<>();
 
     Set<TopicId> systemTopics = MessagingServiceUtils.getSystemTopics(cConf, true);

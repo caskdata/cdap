@@ -1,5 +1,5 @@
 /*
- * Copyright © 2016 Cask Data, Inc.
+ * Copyright © 2016-2021 Cask Data, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -49,7 +49,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import javax.annotation.Nullable;
 
 /**
  * Base class for Message Table tests.
@@ -389,67 +388,6 @@ public abstract class MessageTableTest {
     @Override
     public int getEndSequenceId() {
       return endSeqId;
-    }
-  }
-
-  // Private class for publishing messages
-  private static class TestMessageEntry implements MessageTable.Entry {
-    private final TopicId topicId;
-    private final int generation;
-    private final Long transactionWritePointer;
-    private final byte[] payload;
-    private final long publishTimestamp;
-    private final short sequenceId;
-
-    TestMessageEntry(TopicId topicId, int generation, long publishTimestamp, int sequenceId,
-                     @Nullable Long transactionWritePointer, @Nullable byte[] payload) {
-      this.topicId = topicId;
-      this.generation = generation;
-      this.transactionWritePointer = transactionWritePointer;
-      this.publishTimestamp = publishTimestamp;
-      this.sequenceId = (short) sequenceId;
-      this.payload = payload;
-    }
-
-    @Override
-    public TopicId getTopicId() {
-      return topicId;
-    }
-
-    @Override
-    public int getGeneration() {
-      return generation;
-    }
-
-    @Override
-    public boolean isPayloadReference() {
-      return payload == null;
-    }
-
-    @Override
-    public boolean isTransactional() {
-      return transactionWritePointer != null;
-    }
-
-    @Override
-    public long getTransactionWritePointer() {
-      return transactionWritePointer == null ? -1L : transactionWritePointer;
-    }
-
-    @Nullable
-    @Override
-    public byte[] getPayload() {
-      return payload;
-    }
-
-    @Override
-    public long getPublishTimestamp() {
-      return publishTimestamp;
-    }
-
-    @Override
-    public short getSequenceId() {
-      return sequenceId;
     }
   }
 }

@@ -31,4 +31,11 @@ public interface TableFactory extends Closeable {
   MessageTable createMessageTable(TopicMetadata topicMetadata) throws IOException;
 
   PayloadTable createPayloadTable(TopicMetadata topicMetadata) throws IOException;
+
+  /**
+   * Perform any initialization required. This method will be called before any other method is called.
+   */
+  default void init() throws IOException {
+    // no-op
+  }
 }

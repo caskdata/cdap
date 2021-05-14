@@ -2151,6 +2151,14 @@
   </property>
 
   <property>
+    <name>messaging.local.data.partition.secs</name>
+    <value>86400</value>
+    <description>
+      Size of each local messaging table partition in seconds.
+    </description>
+  </property>
+
+  <property>
     <name>messaging.max.instances</name>
     <value>${master.service.max.instances}</value>
     <description>

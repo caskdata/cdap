@@ -18,6 +18,7 @@ package io.cdap.cdap.messaging.store.leveldb;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Closeables;
+import com.google.gson.Gson;
 import com.google.inject.Inject;
 import io.cdap.cdap.api.dataset.lib.CloseableIterator;
 import io.cdap.cdap.common.conf.CConfiguration;
@@ -39,6 +40,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.Iterator;
@@ -56,6 +61,8 @@ public final class LevelDBTableFactory implements TableFactory {
 
   private static final Logger LOG = LoggerFactory.getLogger(LevelDBTableFactory.class);
   private static final Iq80DBFactory LEVEL_DB_FACTORY = Iq80DBFactory.factory;
+  private static final Gson GSON = new Gson();
+  static final String MESSAGE_TABLE_VERSION = "v2";
 
   private final File baseDir;
   private final Options dbOptions;
@@ -63,6 +70,8 @@ public final class LevelDBTableFactory implements TableFactory {
   private final String messageTableName;
   private final String payloadTableName;
   private final ConcurrentMap<File, DB> levelDBs;
+  private final ConcurrentMap<File, LevelDBPartitionManager> partitionedLevelDBs;
+  private final long partitionSizeMillis;
 
   private LevelDBMetadataTable metadataTable;
 
@@ -85,6 +94,67 @@ public final class LevelDBTableFactory implements TableFactory {
     this.messageTableName = cConf.get(Constants.MessagingSystem.MESSAGE_TABLE_NAME);
     this.payloadTableName = cConf.get(Constants.MessagingSystem.PAYLOAD_TABLE_NAME);
     this.levelDBs = new ConcurrentHashMap<>();
+    this.partitionedLevelDBs = new ConcurrentHashMap<>();
+    this.partitionSizeMillis = cConf.getLong(Constants.MessagingSystem.LOCAL_DATA_PARTITION_SECONDS) * 1000;
+  }
+
+  @Override
+  public void init() throws IOException {
+    ensureDirExists(baseDir);
+    Path metaFile = Paths.get(baseDir.getAbsolutePath(), "meta");
+    Metadata metadata = new Metadata(1);
+    if (Files.exists(metaFile)) {
+      String metaStr = new String(Files.readAllBytes(metaFile), StandardCharsets.UTF_8);
+      metadata = GSON.fromJson(metaStr, Metadata.class);
+    }
+
+    if (metadata.version > 1) {
+      return;
+    }
+
+    upgradeTables(System.currentTimeMillis());
+    Files.write(metaFile, GSON.toJson(new Metadata(2)).getBytes(StandardCharsets.UTF_8));
+  }
+
+  private void upgradeTables(long now) throws IOException {
+    /*
+        scan directory for existing message tables. They will be of the form:
+
+          basedir/[namespace].[messageTableName].[topic].[generation]
+
+        these directories need to be moved to:
+
+          basedir/v2.[namespace].[messageTableName].[topic].[generation]/part0.[now]
+     */
+    for (File tableDir : DirUtils.listFiles(baseDir)) {
+      if (!tableDir.isDirectory()) {
+        continue;
+      }
+
+      String dirName = tableDir.getName();
+      // upgrade could have failed halfway through, skip if it was upgraded previously.
+      if (dirName.startsWith(MESSAGE_TABLE_VERSION + ".")) {
+        continue;
+      }
+      // only message tables should be moved
+      int firstDotIdx = dirName.indexOf('.');
+      int secondDotIdx = dirName.indexOf('.', firstDotIdx + 1);
+      if (firstDotIdx < 0 || secondDotIdx < 0) {
+        continue;
+      }
+      String tableName = dirName.substring(firstDotIdx + 1, secondDotIdx);
+      if (!tableName.equals(messageTableName)) {
+        continue;
+      }
+
+      File v2TopicDir = new File(baseDir, MESSAGE_TABLE_VERSION + "." + dirName);
+      File v2TopicPartitionDir = LevelDBPartitionManager.getPartitionDir(v2TopicDir, 0, now);
+      // this shouldn't happen unless somebody has been modifying the filesystem directly
+      if (v2TopicPartitionDir.exists()) {
+        DirUtils.deleteDirectoryContents(v2TopicPartitionDir);
+      }
+      Files.move(tableDir.toPath(), v2TopicPartitionDir.toPath());
+    }
   }
 
   @Override
@@ -101,7 +171,7 @@ public final class LevelDBTableFactory implements TableFactory {
 
   @Override
   public MessageTable createMessageTable(TopicMetadata topicMetadata) throws IOException {
-    return new LevelDBMessageTable(getLevelDB(topicMetadata, messageTableName), topicMetadata);
+    return new LevelDBMessageTable(getPartitionedLevelDB(topicMetadata, messageTableName));
   }
 
   @Override
@@ -122,6 +192,35 @@ public final class LevelDBTableFactory implements TableFactory {
     Collection<DB> dbs = levelDBs.values();
     dbs.forEach(Closeables::closeQuietly);
     dbs.clear();
+    partitionedLevelDBs.values().forEach(Closeables::closeQuietly);
+    partitionedLevelDBs.clear();
+  }
+
+  @VisibleForTesting
+  static File getMessageTablePath(File baseDir, TopicId topicId, int generation, String tableName) {
+    return new File(baseDir, String.format("%s.%s.%s.%s.%d", MESSAGE_TABLE_VERSION, topicId.getNamespace(),
+                                           tableName, topicId.getTopic(), generation));
+  }
+
+  private LevelDBPartitionManager getPartitionedLevelDB(TopicMetadata topicMetadata,
+                                                        String tableName) throws IOException {
+    File topicDir = getMessageTablePath(baseDir, topicMetadata.getTopicId(), topicMetadata.getGeneration(), tableName);
+    LevelDBPartitionManager partitionManager = partitionedLevelDBs.get(topicDir);
+    if (partitionManager != null) {
+      return partitionManager;
+    }
+
+    synchronized (this) {
+      partitionManager = partitionedLevelDBs.get(topicDir);
+      if (partitionManager != null) {
+        return partitionManager;
+      }
+
+      partitionManager = new LevelDBPartitionManager(ensureDirExists(topicDir), dbOptions, partitionSizeMillis);
+      partitionedLevelDBs.put(topicDir, partitionManager);
+    }
+
+    return partitionManager;
   }
 
   /**
@@ -219,15 +318,14 @@ public final class LevelDBTableFactory implements TableFactory {
 
           // Prune the current generation
           // Message table
-          File dataDBPath = getDataDBPath(messageTableName, metadata.getTopicId(), metadata.getGeneration());
-          DB levelDB = levelDBs.get(dataDBPath);
-          if (levelDB != null && dataDBPath.exists()) {
-            new LevelDBMessageTable(levelDB, metadata).pruneMessages(now);
-          }
+          // Check partitions and drop them if the end time is older than the TTL
+          long thresholdTimestamp = now - TimeUnit.SECONDS.toMillis(metadata.getTTL());
+          LevelDBPartitionManager partitionManager = getPartitionedLevelDB(metadata, messageTableName);
+          partitionManager.prunePartitions(thresholdTimestamp);
 
           // Payload table
-          dataDBPath = getDataDBPath(payloadTableName, metadata.getTopicId(), metadata.getGeneration());
-          levelDB = levelDBs.get(dataDBPath);
+          File dataDBPath = getDataDBPath(payloadTableName, metadata.getTopicId(), metadata.getGeneration());
+          DB levelDB = levelDBs.get(dataDBPath);
           if (levelDB != null && dataDBPath.exists()) {
             new LevelDBPayloadTable(levelDB, metadata).pruneMessages(now);
           }
@@ -235,6 +333,17 @@ public final class LevelDBTableFactory implements TableFactory {
       } catch (IOException ex) {
         LOG.debug("Unable to perform data cleanup in TMS LevelDB tables", ex);
       }
+    }
+  }
+
+  /**
+   * Metadata about table format versioning
+   */
+  private static class Metadata {
+    private final int version;
+
+    Metadata(int version) {
+      this.version = version;
     }
   }
 }
