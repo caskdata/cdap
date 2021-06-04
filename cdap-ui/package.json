@@ -237,7 +237,7 @@
     "rxjs": "5.5.2",
     "serve-favicon": "2.5.0",
     "shepherd.js": "2.0.0-beta.17",
-    "sockjs": "0.3.19",
+    "sockjs": "0.3.20",
     "sockjs-client": "1.4.0",
     "svg4everybody": "2.1.9",
     "typescript": "4.0.5",
