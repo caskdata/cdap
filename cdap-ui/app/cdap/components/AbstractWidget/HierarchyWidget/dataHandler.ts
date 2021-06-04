@@ -116,7 +116,7 @@ function getType(field: IField) {
 }
 
 // This function receives a field from the input schema and depending on the condition returns the expected format
-function typeHandler(field) {
+export function typeHandler(field) {
   let fieldFormat = {};
   if (Array.isArray(field.type)) {
     const objToFormat = {
