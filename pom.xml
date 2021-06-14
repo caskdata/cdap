@@ -152,7 +152,7 @@
     <logback.version>1.0.9</logback.version>
     <mockftp.version>2.6</mockftp.version>
     <mockito.version>1.9.5</mockito.version>
-    <mysql.version>5.1.21</mysql.version>
+    <mysql.version>8.0.16</mysql.version>
     <netty.http.version>1.5.0</netty.http.version>
     <netty.version>4.1.16.Final</netty.version>
     <powermock.version>1.5.6</powermock.version>
