@@ -152,6 +152,12 @@
       <version>${project.version}</version>
       <scope>test</scope>
     </dependency>
+    <!-- temporary workaround, since this doesn't seem to be getting loaded from env -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-log4j12</artifactId>
+      <version>1.7.25</version>
+    </dependency>
   </dependencies>
 
   <build>

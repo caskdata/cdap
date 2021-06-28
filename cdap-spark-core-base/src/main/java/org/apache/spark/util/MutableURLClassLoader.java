@@ -57,6 +57,7 @@ public class MutableURLClassLoader extends ClassLoader {
 
     // Ignore the given parent and create a SparkClassLoader as the parent
     // This is what needed in Spark distributed mode
+    System.err.println("ashau - creating MutableURLClassLoader parent");
     return SparkClassLoader.create();
   }
 }

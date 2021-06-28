@@ -36,6 +36,14 @@
   </properties>
 
   <dependencies>
+    <!-- Spark submit needs this, and for some reason uses the one from /opt/cdap/master/lib instead of the one from Spark classpath -->
+    <dependency>
+      <groupId>com.squareup.okio</groupId>
+      <artifactId>okio</artifactId>
+      <version>1.14.0</version>
+    </dependency>
+
+
     <dependency>
       <groupId>io.cdap.cdap</groupId>
       <artifactId>cdap-master-spi</artifactId>

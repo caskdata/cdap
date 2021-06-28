@@ -43,7 +43,7 @@ import java.util.stream.StreamSupport;
  * Test for {@link KubeDiscoveryService}. The test is disabled by default since it requires a running
  * kubernetes cluster for the test to run. This class is kept for development purpose.
  */
-@Ignore
+//@Ignore
 public class KubeDiscoveryServiceTest {
 
   @Test

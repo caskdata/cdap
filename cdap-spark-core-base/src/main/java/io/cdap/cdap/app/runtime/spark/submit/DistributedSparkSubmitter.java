@@ -78,15 +78,48 @@ public class DistributedSparkSubmitter extends AbstractSparkSubmitter {
     config.put("spark.yarn.appMasterEnv.CDAP_LOG_DIR",  ApplicationConstants.LOG_DIR_EXPANSION_VAR);
     config.put("spark.executorEnv.CDAP_LOG_DIR", ApplicationConstants.LOG_DIR_EXPANSION_VAR);
 
+    //--conf spark.kubernetes.container.image=gcr.io/ashau-dev0/spark:latest
+    //       --conf spark.kubernetes.authenticate.driver.serviceAccountName=spark
+    config.put("spark.kubernetes.container.image", "gcr.io/ashau-dev0/spark:latest");
+    config.put("spark.kubernetes.container.image.pullPolicy", "Always");
+    // this was a service account I manually created
+    config.put("spark.kubernetes.authenticate.driver.serviceAccountName", "spark");
+    // figure out how to avoid this
+    /*
+    --archives, file:/workDir-24d8de1a-cc52-4814-9105-2a81bef58db8/data/tmp/1626192451152-0/program.jar.expanded.zip,
+    file:/workDir-24d8de1a-cc52-4814-9105-2a81bef58db8/artifacts_archive.jar,
+    file:/workDir-24d8de1a-cc52-4814-9105-2a81bef58db8/data/tmp/1626192451152-0/cdap-spark.jar,
+
+    --files,
+    file:/workDir-24d8de1a-cc52-4814-9105-2a81bef58db8/tmp/HydratorSpark1122311452461609611.config#HydratorSpark.config,
+    file:/workDir-24d8de1a-cc52-4814-9105-2a81bef58db8/data/tmp/1626192451152-0/program.jar,
+    file:/workDir-24d8de1a-cc52-4814-9105-2a81bef58db8/data/tmp/1626192451152-0/cdap-spark-launcher.jar,
+    file:/workDir-24d8de1a-cc52-4814-9105-2a81bef58db8/metrics.properties,
+    file:/workDir-24d8de1a-cc52-4814-9105-2a81bef58db8/data/tmp/1626192451152-0/cConf.xml,
+    file:/workDir-24d8de1a-cc52-4814-9105-2a81bef58db8/data/tmp/1626192451152-0/hConf.xml,
+    file:/workDir-24d8de1a-cc52-4814-9105-2a81bef58db8/data/tmp/1626192451152-0/logback.xml.jar
+     */
+    // temporary until figure out how to avoid a hcfs
+    config.put("spark.hadoop.fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem");
+    config.put("spark.hadoop.fs.AbstractFileSystem.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS");
+    config.put("spark.kubernetes.file.upload.path", "gs://ashau-cdap-k8s-test/spark");
     config.put("spark.yarn.security.tokens.hbase.enabled", "false");
     config.put("spark.yarn.security.tokens.hive.enabled", "false");
+    config.put("fs.gs.system.bucket", "ashau-cdap-k8s-test");
+    config.put("fs.gs.project.id", "ashau-dev0");
+    config.put("fs.gs.path.encoding", "uri-path");
+    config.put("fs.gs.working.dir", "/");
+    config.put("fs.gs.impl.disable.cache", "true");
 
     return config;
   }
 
   @Override
   protected void addMaster(Map<String, String> configs, ImmutableList.Builder<String> argBuilder) {
-    argBuilder.add("--master").add("yarn")
+    argBuilder
+      //.add("--master").add("yarn")
+      // how to get the kubernetes ip? Passed from KubeMasterEnvironment somehow?
+      .add("--master").add("k8s://https://34.72.68.10")
       .add("--deploy-mode").add("cluster");
   }
 

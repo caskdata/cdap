@@ -582,6 +582,7 @@ class KubeTwillPreparer implements DependentTwillPreparer, StatefulTwillPreparer
         //.withSelector(new V1LabelSelector().matchLabels(metadata.getLabels()))
         .withParallelism(1)
         .withCompletions(1)
+        .withBackoffLimit(0)
         .withNewTemplate()
           .withMetadata(metadata)
           .withSpec(createPodSpec(runtimeConfigLocation, "Never", runtimeSpecs))

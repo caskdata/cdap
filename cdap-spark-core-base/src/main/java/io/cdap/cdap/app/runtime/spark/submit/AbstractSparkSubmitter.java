@@ -161,14 +161,67 @@ public abstract class AbstractSparkSubmitter implements SparkSubmitter {
   private void submit(SparkRuntimeContext runtimeContext, String[] args) {
     ClassLoader oldClassLoader = ClassLoaders.setContextClassLoader(runtimeContext.getProgramInvocationClassLoader());
     try {
+      /*
+      Calling SparkSubmit for program:default.simple.-SNAPSHOT.spark.phase-1 8d11cb01-d857-11eb-b681-d6422fc79fa6:
+      --master, local[2],
+      --conf, spark.app.name=phase-1,
+      --conf, spark.executor.memory=2048m,
+      --conf, spark.driver.memory=2048m,
+      --conf, spark.local.dir=/workDir-9c65f678-e871-4331-b21a-798ab16c76ed/data/tmp/1624915610677-0,
+      --conf, spark.driver.cores=1,
+      --conf, spark.yarn.maxAppAttempts=1,
+      --conf, spark.executor.id=simple,
+      --conf, spark.network.timeout=600s,
+      --conf, spark.ui.port=0,
+      --conf, spark.executor.cores=1,
+      --conf, spark.metrics.conf=/workDir-9c65f678-e871-.../data/tmp/1624915610677-0/metrics.properties,
+      --conf, spark.speculation=false,
+      --conf, spark.sql.caseSensitive=true,
+      --conf, spark.app.id=simple,
+      --conf, spark.maxRemoteBlockSizeFetchToMem=2147483135,
+      --conf, spark.extraListeners=io.cdap.cdap.app.runtime.spark.DelegatingSparkListener,
+      --conf, spark.sql.autoBroadcastJoinThreshold=-1,
+      --conf, spark.executor.extraJavaOptions=-Dstreaming.checkpoint.rewrite.enabled=true,
+      --conf, spark.cdap.localized.resources=["HydratorSpark.config"],
+      --conf, spark.driver.extraJavaOptions=-Dstreaming.checkpoint.rewrite.enabled=true,
+      --class, io.cdap.cdap.app.runtime.spark.SparkMainWrapper,
+      /workDir-9c65f678-e871-4331-b21a-798ab16c76ed/data/runtime/spark/cdapSparkJob.jar,
+      --cdap.spark.program=program_run:default.simple.-SNAPSHOT.spark.phase-1.8d11cb01-d857-11eb-b681-d6422fc79fa6,
+      --cdap.user.main.class=io.cdap.cdap.etl.spark.batch.BatchSparkPipelineDriver
       LOG.error("ashau - Calling SparkSubmit for {} {}: {}",
                 runtimeContext.getProgram().getId(), runtimeContext.getRunId(), Arrays.toString(args));
+       */
       LOG.debug("Calling SparkSubmit for {} {}: {}",
                 runtimeContext.getProgram().getId(), runtimeContext.getRunId(), Arrays.toString(args));
       // Explicitly set the SPARK_SUBMIT property as it is no longer set on the System properties by the SparkSubmit
       // after the class rewrite. This property only control logging of a warning when submitting the Spark job,
       // hence it's harmless to just leave it there.
       System.setProperty("SPARK_SUBMIT", "true");
+      /*
+      ./bin/spark-submit --master k8s://https://34.72.68.10
+      --deploy-mode cluster
+      --name spark-pi
+      --class org.apache.spark.examples.SparkPi
+      --conf spark.executor.instances=3
+       --conf spark.kubernetes.container.image=gcr.io/ashau-dev0/spark:latest
+       --conf spark.kubernetes.authenticate.driver.serviceAccountName=spark
+       local:///opt/spark/examples/jars/spark-examples_2.12-3.1.2.jar
+       */
+      String[] dummyArgs = new String[] {
+        "--master", "k8s://https://34.72.68.10",
+        "--deploy-mode", "cluster",
+        "--name", "spark-pi",
+        "--class", "org.apache.spark.examples.SparkPi",
+        "--conf", "spark.executor.instances=3",
+        "--conf", "spark.kubernetes.container.image=gcr.io/ashau-dev0/spark:latest",
+        "--conf", "spark.kubernetes.authenticate.driver.serviceAccountName=spark",
+        "--conf", "spark.kubernetes.file.upload.path=gs://ashau-cdap-k8s-test/spark",
+        "--files", args[args.length - 3],
+        "local:///opt/spark/examples/jars/spark-examples_2.12-3.1.2.jar"
+      };
+      LOG.error("ashau - Calling SparkSubmit for {} {}: {}",
+                runtimeContext.getProgram().getId(), runtimeContext.getRunId(), Arrays.toString(args));
+      //SparkSubmit.main(dummyArgs);
       SparkSubmit.main(args);
       LOG.debug("SparkSubmit returned for {} {}", runtimeContext.getProgram().getId(), runtimeContext.getRunId());
     } finally {
@@ -209,6 +262,8 @@ public abstract class AbstractSparkSubmitter implements SparkSubmitter {
     if (!files.isEmpty()) {
       builder.add("--files").add(files);
     }
+    // temporary for debugging
+    builder.add("--verbose");
 
     boolean isPySpark = jobFile.getPath().endsWith(".py");
     if (isPySpark) {

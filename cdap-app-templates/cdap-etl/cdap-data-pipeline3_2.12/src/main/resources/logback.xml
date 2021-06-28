@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  Copyright © 2014-2017 Cask Data, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License"); you may not
+  use this file except in compliance with the License. You may obtain a copy of
+  the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+  License for the specific language governing permissions and limitations under
+  the License.
+  -->
+
+<!--                                                                                      -->
+<!-- Logging configuration for CDAP System Services on CDAP Master or edge nodes          -->
+<!--                                                                                      -->
+<!-- The LogBack project (http://logback.qos.ch/manual) is used for CDAP logging          -->
+<!--                                                                                      -->
+
+<configuration>
+
+    <!-- Quieting some chatty loggers -->
+    <logger name="org.apache.commons.beanutils" level="ERROR"/>
+    <logger name="org.apache.zookeeper.server" level="ERROR"/>
+    <logger name="org.apache.zookeeper" level="ERROR"/>
+    <logger name="com.ning" level="WARN"/>
+    <logger name="org.apache.spark" level="DEBUG"/>
+    <logger name="org.spark_project" level="DEBUG"/>
+    <logger name="org.apache.hadoop" level="DEBUG"/>
+    <logger name="org.apache.hive" level="WARN"/>
+    <logger name="io.debezium" level="WARN" />
+    <!-- TODO Remove suppressing of Tephra logs once CDAP-8806 is fixed. -->
+    <logger name="org.apache.tephra.TransactionManager" level="WARN"/>
+    <logger name="org.apache.tephra.distributed.AbstractClientProvider" level="WARN"/>
+    <logger name="org.apache.tephra.persist.LocalFileTransactionStateStorage" level="WARN"/>
+    <logger name="org.mortbay.log" level="WARN"/>
+    <logger name="SecurityLogger.org.apache.hadoop.security.authorize.ServiceAuthorizationManager" level="WARN"/>
+    <logger name="SecurityLogger.org.apache.hadoop.ipc.Server" level="WARN"/>
+    <!-- Because of HADOOP-11180 move this to Error -->
+    <logger name="org.apache.hadoop.security.token.Token" level="ERROR"/>
+    <logger name="org.apache.hadoop.metrics2" level="ERROR"/>
+    <logger name="org.quartz.core" level="WARN"/>
+    <logger name="org.eclipse.jetty" level="WARN"/>
+    <logger name="io.netty.util.internal" level="WARN"/>
+    <logger name="io.cdap" level="DEBUG"/>
+    <logger name="io.cdap.cdap.operations.OperationalStats" level="ERROR"/>
+    <logger name="io.cdap.cdap.extension.AbstractExtensionLoader" level="ERROR"/>
+    <logger name="akka" level="WARN"/>
+    <logger name="Remoting" level="WARN"/>
+    <logger name="com.sun.jersey" level="WARN"/>
+
+    <!--
+      The netty http library logs an ERROR always if it is raised
+      not from user handler, which usually is due to network error.
+      Disabling the log to avoid flooding.
+    -->
+    <logger name="io.cdap.http.HttpDispatcher" level="OFF"/>
+
+
+    <logger name="WriteAheadLogManager " level="WARN"/>
+    <logger name="org.apache.kafka" level="INFO"/>
+    <logger name="org.apache.kafka.common.config.AbstractConfig" level="WARN"/>
+
+    <!-- HttpRequestLog is not used and expects log4j logging or logs a WARN message -->
+    <logger name="org.apache.hadoop.http.HttpRequestLog" level="ERROR"/>
+
+    <appender name="Rolling" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/cdap.log</file>
+        <encoder>
+            <pattern>%d{ISO8601} - %-5p [%t:%C{1}@%L] - %m%n</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>WARN</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+            <maxIndex>10</maxIndex>
+            <FileNamePattern>logs/cdap.log.%i</FileNamePattern>
+        </rollingPolicy>
+        <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+            <MaxFileSize>50000KB</MaxFileSize>
+        </triggeringPolicy>
+    </appender>
+
+    <appender name="Debug" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/cdap-debug.log</file>
+        <encoder>
+            <pattern>%d{ISO8601} - %-5p [%t:%C{1}@%L] - %m%n</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>DEBUG</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+            <maxIndex>10</maxIndex>
+            <FileNamePattern>logs/cdap-debug.log.%i</FileNamePattern>
+        </rollingPolicy>
+        <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+            <MaxFileSize>50000KB</MaxFileSize>
+        </triggeringPolicy>
+    </appender>
+
+    <appender name="Error" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{ISO8601} - %-5p [%t:%C{1}@%L] - %m%n</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+    </appender>
+
+    <appender name="AUDIT" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/access.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/access.log.%d{yyyy-MM-dd}</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%msg%n</pattern>
+        </encoder>
+    </appender>
+    <logger name="http-access" level="TRACE" additivity="false">
+        <appender-ref ref="AUDIT" />
+    </logger>
+
+    <appender name="EXTERNAL_AUTH_AUDIT" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/external_auth_access.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/external_auth_access.log.%d{yyyy-MM-dd}</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%msg%n</pattern>
+        </encoder>
+    </appender>
+    <logger name="external-auth-access" level="TRACE" additivity="false">
+        <appender-ref ref="EXTERNAL_AUTH_AUDIT" />
+    </logger>
+
+    <root level="DEBUG">
+        <appender-ref ref="Rolling"/>
+        <appender-ref ref="Debug"/>
+        <appender-ref ref="Error"/>
+    </root>
+
+</configuration>

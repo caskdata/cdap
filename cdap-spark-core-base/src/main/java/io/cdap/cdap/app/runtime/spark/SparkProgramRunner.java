@@ -203,6 +203,7 @@ public final class SparkProgramRunner extends AbstractProgramRunnerWithPlugin
       }
 
       boolean isLocal = SparkRuntimeContextConfig.isLocal(options);
+      isLocal = false;
       SparkSubmitter submitter = isLocal
         ? new LocalSparkSubmitter()
         : new DistributedSparkSubmitter(hConf, locationFactory, host, runtimeContext,
