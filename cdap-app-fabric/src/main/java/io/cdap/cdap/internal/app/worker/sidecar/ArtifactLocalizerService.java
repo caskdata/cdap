@@ -23,11 +23,14 @@ import io.cdap.cdap.common.conf.CConfiguration;
 import io.cdap.cdap.common.conf.Constants;
 import io.cdap.cdap.common.http.CommonNettyHttpServiceBuilder;
 import io.cdap.http.NettyHttpService;
+import org.apache.twill.common.Threads;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -39,6 +42,9 @@ public class ArtifactLocalizerService extends AbstractIdleService {
 
   private final NettyHttpService httpService;
   private InetSocketAddress bindAddress;
+  private ScheduledExecutorService scheduledExecutorService;
+  private final ArtifactLocalizerCleaner cleaner;
+  private final int cacheCleanupInterval;
 
   @Inject
   ArtifactLocalizerService(CConfiguration cConf,
@@ -51,27 +57,38 @@ public class ArtifactLocalizerService extends AbstractIdleService {
       .setHttpHandlers(new ArtifactLocalizerHttpHandlerInternal(artifactLocalizer));
 
     httpService = builder.build();
+    cacheCleanupInterval = cConf.getInt(Constants.ArtifactLocalizer.CACHE_CLEANUP_INTERVAL_MIN);
+    scheduledExecutorService = Executors
+      .newSingleThreadScheduledExecutor(Threads.createDaemonThreadFactory("artifact-cache-cleaner"));
+    cleaner = new ArtifactLocalizerCleaner(cConf);
   }
 
   @Override
   protected void startUp() throws Exception {
     LOG.debug("Starting ArtifactLocalizerService");
     httpService.start();
+    scheduledExecutorService.scheduleAtFixedRate(cleaner, cacheCleanupInterval, cacheCleanupInterval, TimeUnit.MINUTES);
     bindAddress = httpService.getBindAddress();
     LOG.debug("Starting ArtifactLocalizerService has completed");
-
-    // TODO: (CDAP-18051) Add cleanup task for out of date cached artifacts
   }
 
   @Override
   protected void shutDown() throws Exception {
     LOG.debug("Shutting down ArtifactLocalizerService");
     httpService.stop(5, 5, TimeUnit.SECONDS);
+    scheduledExecutorService.shutdownNow();
     LOG.debug("Shutting down ArtifactLocalizerService has completed");
   }
 
   @VisibleForTesting
   public InetSocketAddress getBindAddress() {
     return bindAddress;
+  }
+
+  @VisibleForTesting
+  void runCleaner() throws InterruptedException {
+    scheduledExecutorService.execute(cleaner);
+    scheduledExecutorService.shutdown();
+    scheduledExecutorService.awaitTermination(5, TimeUnit.SECONDS);
   }
 }

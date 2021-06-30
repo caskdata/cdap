@@ -424,6 +424,11 @@ public final class Constants {
   public static final class ArtifactLocalizer {
 
     /**
+     * Artifact localizer service clean up configurations
+     */
+    public static final String CACHE_CLEANUP_INTERVAL_MIN = "artifact.localizer.cache.cleanup.interval.min";
+
+    /**
      * Artifact localizer sidecar container configurations
      */
     public static final String CONTAINER_MEMORY_MB = "artifact.localizer.container.memory.mb";

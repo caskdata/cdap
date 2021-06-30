@@ -16,6 +16,7 @@
 
 package io.cdap.cdap.common.utils;
 
+import java.io.File;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -85,6 +86,19 @@ public class FileUtils {
     } else {
       throw new IllegalArgumentException("Not a valid permissions string: " + permissions);
     }
+  }
+
+  /**
+   * Returns the name of a given file without the extension, if one is present
+   * @param file the file
+   * @return the name of the file without the extension
+   */
+  public static String getNameWithoutExtension(File file) {
+    String fileName = file.getName();
+    if (file.isDirectory() || !fileName.contains(".")) {
+      return fileName;
+    }
+    return fileName.substring(0, fileName.lastIndexOf("."));
   }
 
   private static int parsePermissionGroup(String permissions, int start) {

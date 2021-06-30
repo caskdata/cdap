@@ -4450,4 +4450,12 @@
       The local data directory for the task worker container.
     </description>
   </property>
+
+  <property>
+    <name>artifact.localizer.cache.cleanup.interval.min</name>
+    <value>60</value>
+    <description>
+      The interval (in minutes) that the cleanup service will delete old artifact cache files.
+    </description>
+  </property>
 </configuration>
