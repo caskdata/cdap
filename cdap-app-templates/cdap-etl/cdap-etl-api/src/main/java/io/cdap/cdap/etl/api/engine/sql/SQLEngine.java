@@ -28,6 +28,7 @@ import io.cdap.cdap.etl.api.engine.sql.request.SQLJoinDefinition;
 import io.cdap.cdap.etl.api.engine.sql.request.SQLJoinRequest;
 import io.cdap.cdap.etl.api.engine.sql.request.SQLPullRequest;
 import io.cdap.cdap.etl.api.engine.sql.request.SQLPushRequest;
+import io.cdap.cdap.etl.api.engine.sql.request.SQLWriteRequest;
 
 /**
  * A SQL Engine can be used to pushdown certain dataset operations.
@@ -100,6 +101,10 @@ public interface SQLEngine<KEY_IN, VALUE_IN, KEY_OUT, VALUE_OUT>
    * @return the {@link SQLDataset} instance representing the output of this operation.
    */
   SQLDataset join(SQLJoinRequest joinRequest) throws SQLEngineException;
+
+  default boolean write(SQLWriteRequest writeRequest) throws SQLEngineException {
+    return false;
+  }
 
   /**
    * Deletes all temporary datasets and cleans up all temporary data from the SQL engine.

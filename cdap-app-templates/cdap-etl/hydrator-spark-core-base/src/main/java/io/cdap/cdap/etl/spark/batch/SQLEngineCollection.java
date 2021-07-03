@@ -20,6 +20,7 @@ import io.cdap.cdap.api.data.DatasetContext;
 import io.cdap.cdap.api.spark.JavaSparkExecutionContext;
 import io.cdap.cdap.etl.api.batch.SparkCompute;
 import io.cdap.cdap.etl.api.batch.SparkSink;
+import io.cdap.cdap.etl.api.engine.sql.SQLEngineOutput;
 import io.cdap.cdap.etl.api.engine.sql.dataset.SQLDataset;
 import io.cdap.cdap.etl.api.streaming.Windower;
 import io.cdap.cdap.etl.common.PhaseSpec;
@@ -179,6 +180,15 @@ public class SQLEngineCollection<T> implements SQLBackedCollection<T> {
   @Override
   public <U> SparkCollection<U> compute(StageSpec stageSpec, SparkCompute<T, U> compute) throws Exception {
     return pull().compute(stageSpec, compute);
+  }
+
+  public boolean tryStoreDirect(StageSpec stageSpec) {
+    SQLEngineOutput sqlEngineOutput = sinkFactory.getSQLEngineOutput(stageSpec.getName());
+    if (sqlEngineOutput != null) {
+      //Try writing directly
+      return adapter.write(datasetName, sqlEngineOutput);
+    }
+    return false;
   }
 
   @Override

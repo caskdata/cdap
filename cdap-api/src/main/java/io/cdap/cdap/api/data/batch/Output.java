@@ -33,7 +33,7 @@ public abstract class Output {
   private String alias;
   private String namespace;
 
-  private Output(String name) {
+  protected Output(String name) {
     this.name = name;
   }
 

@@ -21,6 +21,7 @@ import io.cdap.cdap.api.data.batch.Output;
 import io.cdap.cdap.api.data.batch.OutputFormatProvider;
 import io.cdap.cdap.api.dataset.lib.KeyValue;
 import io.cdap.cdap.api.spark.JavaSparkExecutionContext;
+import io.cdap.cdap.etl.api.engine.sql.SQLEngineOutput;
 import io.cdap.cdap.etl.common.Constants;
 import io.cdap.cdap.etl.common.output.MultiOutputFormat;
 import org.apache.hadoop.conf.Configuration;
@@ -37,6 +38,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -49,12 +51,14 @@ public final class SparkBatchSinkFactory {
   private final Set<String> uncombinableSinks;
   private final Map<String, DatasetInfo> datasetInfos;
   private final Map<String, Set<String>> sinkOutputs;
+  private final Map<String, SQLEngineOutput> sqlOutputs;
 
   public SparkBatchSinkFactory() {
     this.outputFormatProviders = new HashMap<>();
     this.uncombinableSinks = new HashSet<>();
     this.datasetInfos = new HashMap<>();
     this.sinkOutputs = new HashMap<>();
+    this.sqlOutputs = new HashMap<>();
   }
 
   void addOutput(String stageName, Output output) {
@@ -68,6 +72,9 @@ public final class SparkBatchSinkFactory {
                 new NamedOutputFormatProvider(ofpOutput.getName(),
                                               ofpOutput.getOutputFormatProvider().getOutputFormatClassName(),
                                               ofpOutput.getOutputFormatProvider().getOutputFormatConfiguration()));
+    } else if (output instanceof SQLEngineOutput) {
+      //TODO - separate output from it's contents
+      addOutput(stageName, output.getAlias(), (SQLEngineOutput) output);
     } else {
       throw new IllegalArgumentException("Unknown output format type: " + output.getClass().getCanonicalName());
     }
@@ -86,6 +93,15 @@ public final class SparkBatchSinkFactory {
       throw new IllegalArgumentException("Output already configured: " + alias);
     }
     outputFormatProviders.put(alias, outputFormatProvider);
+    addStageOutput(stageName, alias);
+  }
+
+  private void addOutput(String stageName, String alias,
+                         SQLEngineOutput sqlEngineOutput) {
+    if (sqlOutputs.containsKey(stageName)) {
+      throw new IllegalArgumentException("Output already configured: " + alias);
+    }
+    sqlOutputs.put(alias, sqlEngineOutput);
     addStageOutput(stageName, alias);
   }
 
@@ -191,6 +207,11 @@ public final class SparkBatchSinkFactory {
   private void addStageOutput(String stageName, String outputName) {
     Set<String> outputs = sinkOutputs.computeIfAbsent(stageName, k -> new HashSet<>());
     outputs.add(outputName);
+  }
+
+  public SQLEngineOutput getSQLEngineOutput(String stageName) {
+    return !sinkOutputs.containsKey(stageName) ? null :
+      sinkOutputs.get(stageName).stream().map(sqlOutputs::get).filter(Objects::nonNull).findFirst().orElse(null);
   }
 
   static final class NamedOutputFormatProvider implements OutputFormatProvider {
