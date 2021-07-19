@@ -105,7 +105,7 @@ public class ProfileHttpHandler extends AbstractHttpHandler {
   public void writeSystemProfile(FullHttpRequest request, HttpResponder responder,
                                  @PathParam("profile-name") String profileName) throws Exception {
     ProfileId profileId = getValidatedProfile(NamespaceId.SYSTEM, profileName);
-    accessEnforcer.enforce(profileId, authenticationContext.getPrincipal(), StandardPermission.UPDATE);
+    checkPutProfilePermissions(profileId);
     writeProfile(profileId, request);
     responder.sendStatus(HttpResponseStatus.OK);
   }
@@ -181,7 +181,7 @@ public class ProfileHttpHandler extends AbstractHttpHandler {
                            @PathParam("namespace-id") String namespaceId,
                            @PathParam("profile-name") String profileName) throws Exception {
     ProfileId profileId = getValidatedProfile(namespaceId, profileName);
-    accessEnforcer.enforce(profileId, authenticationContext.getPrincipal(), StandardPermission.UPDATE);
+    checkPutProfilePermissions(profileId);
     writeProfile(profileId, request);
     responder.sendStatus(HttpResponseStatus.OK);
   }
@@ -309,6 +309,21 @@ public class ProfileHttpHandler extends AbstractHttpHandler {
                                                   provisionerInfo.getName()), e);
     } catch (IllegalArgumentException e) {
       throw new BadRequestException(e.getMessage(), e);
+    }
+  }
+
+  private void checkPutProfilePermissions(ProfileId profileId) {
+    boolean profileExists;
+    try {
+      profileService.getProfile(profileId);
+      profileExists = true;
+    } catch (NotFoundException e) {
+      profileExists = false;
+    }
+    if (profileExists) {
+      accessEnforcer.enforce(profileId, authenticationContext.getPrincipal(), StandardPermission.UPDATE);
+    } else {
+      accessEnforcer.enforce(profileId, authenticationContext.getPrincipal(), StandardPermission.CREATE);
     }
   }
 }
