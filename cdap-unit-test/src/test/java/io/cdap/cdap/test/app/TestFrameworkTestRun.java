@@ -2074,6 +2074,8 @@ public class TestFrameworkTestRun extends TestFrameworkTestBase {
     HttpURLConnection connection = (HttpURLConnection) new URL(serviceURL.toString() + path).openConnection();
     try {
       return connection.getResponseCode();
+    } catch (IOException e) {
+      throw new IOException("Error calling service URL " + serviceURL.toString() + path, e);
     } finally {
       connection.disconnect();
     }
