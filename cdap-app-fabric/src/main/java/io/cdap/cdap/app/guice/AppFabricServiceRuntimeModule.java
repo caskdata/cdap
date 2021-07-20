@@ -57,6 +57,7 @@ import io.cdap.cdap.gateway.handlers.CommonHandlers;
 import io.cdap.cdap.gateway.handlers.ConfigHandler;
 import io.cdap.cdap.gateway.handlers.ConsoleSettingsHttpHandler;
 import io.cdap.cdap.gateway.handlers.FileFetcherHttpHandlerInternal;
+import io.cdap.cdap.gateway.handlers.GitHubHttpHandler;
 import io.cdap.cdap.gateway.handlers.ImpersonationHandler;
 import io.cdap.cdap.gateway.handlers.InstanceOperationHttpHandler;
 import io.cdap.cdap.gateway.handlers.NamespaceHttpHandler;
@@ -361,6 +362,7 @@ public final class AppFabricServiceRuntimeModule extends RuntimeModule {
       handlerBinder.addBinding().to(ConfigHandler.class);
       handlerBinder.addBinding().to(VersionHandler.class);
       handlerBinder.addBinding().to(UsageHandler.class);
+      handlerBinder.addBinding().to(GitHubHttpHandler.class);
       handlerBinder.addBinding().to(InstanceOperationHttpHandler.class);
       handlerBinder.addBinding().to(NamespaceHttpHandler.class);
       handlerBinder.addBinding().to(AppLifecycleHttpHandler.class);

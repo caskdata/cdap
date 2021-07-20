@@ -69,11 +69,39 @@ public final class StoreDefinition {
     FieldLineageStore.createTables(tableAdmin, overWrite);
     LogFileMetaStore.createTables(tableAdmin, overWrite);
     CapabilitiesStore.createTable(tableAdmin, overWrite);
+    GitHubStore.createTable(tableAdmin, overWrite);
   }
 
   public static void createAllTables(StructuredTableAdmin tableAdmin, StructuredTableRegistry registry)
     throws IOException, TableAlreadyExistsException {
     createAllTables(tableAdmin, registry, false);
+  }
+
+  public static final class GitHubStore {
+    public static final StructuredTableId GIT_REPOS = new StructuredTableId("GitRepos");
+
+    public static final String NICKNAME_FIELD = "nickname";
+    public static final String URL_FIELD = "url";
+    public static final String DEFAULT_BRANCH_FIELD = "defaultBranch";
+    public static final String AUTH_STRING_FIELD = "authString";
+
+
+    public static final StructuredTableSpecification GITHUB_TABLE_SPEC =
+        new StructuredTableSpecification.Builder()
+          .withId(GIT_REPOS)
+          .withFields(Fields.stringType(NICKNAME_FIELD),
+                      Fields.stringType(URL_FIELD),
+                      Fields.stringType(DEFAULT_BRANCH_FIELD),
+                      Fields.stringType(AUTH_STRING_FIELD))
+          .withPrimaryKeys(NICKNAME_FIELD)
+          .build();
+
+    public static void createTable(StructuredTableAdmin tableAdmin,
+                                   boolean overWrite) throws IOException, TableAlreadyExistsException {
+      if (overWrite || tableAdmin.getSpecification(GIT_REPOS) == null) {
+        tableAdmin.create(GITHUB_TABLE_SPEC);
+      }
+    }
   }
 
   /**
