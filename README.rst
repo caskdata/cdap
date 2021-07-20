@@ -43,7 +43,7 @@ transform, and load) pipelines all the way up to complex, enterprise-scale data-
 applications.
 
 Developers can build and test their applications end-to-end in a full-stack, single-node
-installation. CDAP can be run either as a Sandbox, deployed within the Enterprise 
+installation. CDAP can be run either as a Sandbox, deployed within the Enterprise
 on-premises or hosted in the Cloud.
 
 For more information, see our collection of `Developers' Manual and other documentation
@@ -69,6 +69,7 @@ You can get started with CDAP by building directly from the latest source code::
 
   git clone https://github.com/caskdata/cdap.git
   cd cdap
+  git submodule update --init --recursive --remote
   mvn clean package
 
 After the build completes, you will have built all modules for CDAP.
