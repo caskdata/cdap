@@ -156,7 +156,7 @@
     <netty.http.version>1.7.0</netty.http.version>
     <netty.version>4.1.16.Final</netty.version>
     <powermock.version>1.5.6</powermock.version>
-    <quartz.version>2.2.0</quartz.version>
+    <quartz.version>2.3.2</quartz.version>
     <resteasy.version>3.0.8.Final</resteasy.version>
     <rs-api.version>2.0</rs-api.version>
     <scala2.11.version>2.11.12</scala2.11.version>
