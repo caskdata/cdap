@@ -141,7 +141,7 @@
     <hbase12cdh570.version>1.2.0-cdh5.7.0</hbase12cdh570.version>
     <hive.version>1.2.1</hive.version>
     <hsql.version>2.2.4</hsql.version>
-    <jackson.version>2.8.8</jackson.version>
+    <jackson.version>2.9.10.7</jackson.version>
     <jsch.version>0.1.54</jsch.version>
     <jetty.version>6.1.22</jetty.version>
     <jetty8.version>8.1.15.v20140411</jetty8.version>
