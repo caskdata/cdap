@@ -300,7 +300,7 @@ public class ProgramNotificationSubscriberService extends AbstractNotificationSu
       case SUSPENDED:
         long suspendTime = getTimeSeconds(notification.getProperties(),
                                           ProgramOptionConstants.SUSPEND_TIME);
-        // since we are adding suspend time recently, there might be old suspended notificications for which time
+        // since we are adding suspend time recently, there might be old suspended notifications for which time
         // can be -1.
         recordedRunRecord = appMetadataStore.recordProgramSuspend(programRunId, messageIdBytes, suspendTime);
         writeToHeartBeatTable(recordedRunRecord, suspendTime, programHeartbeatTable);
@@ -308,7 +308,7 @@ public class ProgramNotificationSubscriberService extends AbstractNotificationSu
       case RESUMING:
         long resumeTime = getTimeSeconds(notification.getProperties(),
                                          ProgramOptionConstants.RESUME_TIME);
-        // since we are adding suspend time recently, there might be old suspended notificications for which time
+        // since we are adding suspend time recently, there might be old suspended notifications for which time
         // can be -1.
         recordedRunRecord = appMetadataStore.recordProgramResumed(programRunId, messageIdBytes, resumeTime);
         writeToHeartBeatTable(recordedRunRecord, resumeTime, programHeartbeatTable);

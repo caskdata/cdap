@@ -178,6 +178,9 @@ public abstract class AbstractProgramController implements ProgramController {
       state.set(completionState);
       if (State.KILLED.equals(completionState)) {
         caller.killed();
+      } else if (State.ERROR.equals(completionState)) {
+        // mark program as error when its in error state.
+        caller.error(new Exception(String.format("Program %s completed with exception.", programId)));
       } else {
         caller.completed();
       }

@@ -62,7 +62,7 @@ import java.util.stream.Collectors;
  * Implementation of {@link MasterEnvironment} to provide the environment for running in Kubernetes.
  */
 public class KubeMasterEnvironment implements MasterEnvironment {
-
+  public static final String DISABLE_POD_DELETION = "disablePodDeletion";
   private static final Logger LOG = LoggerFactory.getLogger(KubeMasterEnvironment.class);
 
   // Contains the list of configuration / secret names coming from the Pod information, which are
@@ -72,6 +72,8 @@ public class KubeMasterEnvironment implements MasterEnvironment {
 
   private static final String MASTER_MAX_INSTANCES = "master.service.max.instances";
   private static final String DATA_TX_ENABLED = "data.tx.enabled";
+  private static final String JOB_CLEANUP_INTERVAL = "program.container.cleaner.interval.mins";
+  private static final String JOB_CLEANUP_BATCH_SIZE = "program.container.cleaner.batch.size";
 
   private static final String NAMESPACE_KEY = "master.environment.k8s.namespace";
   private static final String INSTANCE_LABEL = "master.environment.k8s.instance.label";
@@ -155,7 +157,9 @@ public class KubeMasterEnvironment implements MasterEnvironment {
 
     twillRunner = new KubeTwillRunnerService(context, namespace, discoveryService,
                                              podInfo, resourcePrefix,
-                                             Collections.singletonMap(instanceLabel, instanceName));
+                                             Collections.singletonMap(instanceLabel, instanceName),
+                                             Integer.parseInt(conf.getOrDefault(JOB_CLEANUP_INTERVAL, "60")),
+                                             Integer.parseInt(conf.getOrDefault(JOB_CLEANUP_BATCH_SIZE, "1000")));
     LOG.info("Kubernetes environment initialized with pod labels {}", podLabels);
   }
 

@@ -50,7 +50,7 @@ final class DistributedProgramRunnerModule extends PrivateModule {
     // ProgramRunnerFactory should be in distributed mode
     bind(ProgramRuntimeProvider.Mode.class).toInstance(ProgramRuntimeProvider.Mode.DISTRIBUTED);
     // Bind and expose ProgramRunnerFactory. It is used in both program deployment and program execution.
-    // Should get refactory by CDAP-5506
+    // Should get refactored by CDAP-5506
     bindConstant()
       .annotatedWith(Names.named(DefaultProgramRunnerFactory.PUBLISH_PROGRAM_STATE))
       .to(publishProgramState);

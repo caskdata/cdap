@@ -57,6 +57,8 @@ import io.cdap.cdap.logging.context.LoggingContextHelper;
 import io.cdap.cdap.master.spi.twill.SecretDisk;
 import io.cdap.cdap.master.spi.twill.SecureTwillPreparer;
 import io.cdap.cdap.master.spi.twill.SecurityContext;
+import io.cdap.cdap.master.spi.twill.TwillConstants;
+import io.cdap.cdap.proto.ProgramType;
 import io.cdap.cdap.proto.id.ProgramRunId;
 import io.cdap.cdap.security.impersonation.Impersonator;
 import io.cdap.cdap.security.store.SecureStoreUtils;
@@ -262,6 +264,12 @@ public abstract class DistributedProgramRunner implements ProgramRunner, Program
           }
           twillPreparer.setLogLevels(runnable, transformLogLevels(runnableDefinition.getLogLevels()));
           twillPreparer.withConfiguration(runnable, runnableDefinition.getTwillRunnableConfigs());
+          if (clusterMode == ClusterMode.ON_PREMISE && program.getType() == ProgramType.WORKFLOW) {
+            // set TwillConstants#PROGRAM_RUNTIME_ENV configuration on twill preparer. This configuration will be
+            // used when cdap programs are launched on k8s env.
+            twillPreparer.withConfiguration(runnable,
+                                            Collections.singletonMap(TwillConstants.PROGRAM_RUNTIME_ENV, "master"));
+          }
 
           // Add cdap-security.xml if using secrets, and set the runnable identity.
           if (twillPreparer instanceof SecureTwillPreparer) {

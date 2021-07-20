@@ -587,7 +587,6 @@ public class ProvisioningService extends AbstractIdleService {
     ProgramOptions programOptions = taskInfo.getProgramOptions();
     Map<String, String> systemArgs = programOptions.getArguments().asMap();
     ProvisionerContext context;
-    String name = SystemArguments.getProfileProvisioner(systemArgs);
     try {
       SSHContext sshContext = new DefaultSSHContext(Networks.getAddress(cConf, Constants.NETWORK_PROXY_ADDRESS),
                                                     locationFactory.create(taskInfo.getSecureKeysDir()),
