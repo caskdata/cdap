@@ -63,8 +63,11 @@ import org.slf4j.LoggerFactory;
 
 import java.io.DataInput;
 import java.io.DataOutput;
+import java.io.File;
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.util.Collections;
 import java.util.List;
 import javax.ws.rs.PUT;
@@ -83,6 +86,7 @@ public class AppWithCustomTx extends AbstractApplication {
   private static final Logger LOG = LoggerFactory.getLogger(AppWithCustomTx.class);
 
   private static final String NAME = "AppWithCustomTx";
+  static final String DONE_DIR = "done.dir";
   static final String CAPTURE = "capture";
   static final String DEFAULT = "default";
   static final String FAILED = "failed";
@@ -397,6 +401,7 @@ public class AppWithCustomTx extends AbstractApplication {
         public void onError(HttpServiceResponder responder, Throwable failureCause) {
           recordTransaction(getContext(), CONSUMER_TX, ONERROR);
           attemptNestedTransaction(getContext(), CONSUMER_TX, ONERROR_NEST);
+          responder.sendStatus(HttpURLConnection.HTTP_INTERNAL_ERROR);
         }
 
         @Override
@@ -427,12 +432,20 @@ public class AppWithCustomTx extends AbstractApplication {
             public void onFinish() throws Exception {
               recordTransaction(getContext(), PRODUCER_TX, DESTROY);
               attemptNestedTransaction(getContext(), PRODUCER_TX, DESTROY_NEST);
+              File doneFile = new File(getContext().getRuntimeArguments().get(DONE_DIR), "tx" + body);
+              doneFile.createNewFile();
             }
 
             @Override
             public void onError(Throwable failureCause) {
               recordTransaction(getContext(), PRODUCER_TX, ONERROR);
               attemptNestedTransaction(getContext(), PRODUCER_TX, ONERROR_NEST);
+              File doneFile = new File(getContext().getRuntimeArguments().get(DONE_DIR), "tx" + body);
+              try {
+                doneFile.createNewFile();
+              } catch (IOException e) {
+                LOG.error("Failed to create file {}", doneFile.getAbsolutePath());
+              }
             }
           }, ContentType.TEXT_PLAIN.getMimeType());
         }
@@ -465,7 +478,6 @@ public class AppWithCustomTx extends AbstractApplication {
     @TransactionPolicy(TransactionControl.EXPLICIT)
     public HttpContentConsumer notx(HttpServiceRequest request, HttpServiceResponder responder)
       throws TransactionFailureException {
-
       recordTransaction(getContext(), HANDLER_NOTX, RUNTIME);
       executeRecordTransaction(getContext(), HANDLER_NOTX, RUNTIME_TX, TIMEOUT_HANDLER_RUNTIME);
       executeAttemptNestedTransaction(getContext(), HANDLER_NOTX, RUNTIME_NEST);
@@ -495,6 +507,7 @@ public class AppWithCustomTx extends AbstractApplication {
           recordTransaction(getContext(), CONSUMER_NOTX, ONERROR);
           executeRecordTransaction(getContext(), CONSUMER_NOTX, ONERROR_TX, TIMEOUT_CONSUMER_ERROR);
           executeAttemptNestedTransaction(getContext(), CONSUMER_NOTX, ONERROR_NEST);
+          responder.sendStatus(HttpURLConnection.HTTP_INTERNAL_ERROR);
         }
 
         @Override
@@ -528,6 +541,10 @@ public class AppWithCustomTx extends AbstractApplication {
               recordTransaction(getContext(), PRODUCER_NOTX, DESTROY);
               executeRecordTransaction(getContext(), PRODUCER_NOTX, DESTROY_TX, TIMEOUT_PRODUCER_DESTROY);
               executeAttemptNestedTransaction(getContext(), PRODUCER_NOTX, DESTROY_NEST);
+              // onFinish and onError methods are called on the listener once the response is sent completely.
+              // We want caller to wait till these callbacks finish.
+              File doneFile = new File(getContext().getRuntimeArguments().get(DONE_DIR), "notx" + body);
+              doneFile.createNewFile();
             }
 
             @Override
@@ -536,6 +553,12 @@ public class AppWithCustomTx extends AbstractApplication {
               recordTransaction(getContext(), PRODUCER_NOTX, ONERROR);
               executeRecordTransaction(getContext(), PRODUCER_NOTX, ONERROR_TX, TIMEOUT_PRODUCER_ERROR);
               executeAttemptNestedTransaction(getContext(), PRODUCER_NOTX, ONERROR_NEST);
+              File doneFile = new File(getContext().getRuntimeArguments().get(DONE_DIR), "notx" + body);
+              try {
+                doneFile.createNewFile();
+              } catch (IOException e) {
+                LOG.error("Failed to create file {}", doneFile.getAbsolutePath());
+              }
             }
           }, ContentType.TEXT_PLAIN.getMimeType());
         }

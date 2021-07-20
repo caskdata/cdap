@@ -117,10 +117,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -1269,8 +1271,10 @@ public class TestFrameworkTestRun extends TestFrameworkTestBase {
                     () -> appManager.getServiceManager(AppWithCustomTx.SERVICE)
                       .getHistory(ProgramRunStatus.FAILED).size(),
                     30L, TimeUnit.SECONDS, 1, TimeUnit.SECONDS);
-      ServiceManager serviceManager = appManager.getServiceManager(AppWithCustomTx.SERVICE)
-        .start(txTimeoutArguments(txDefaulTimeoutService));
+      String tmpDir = TMP_FOLDER.newFolder().getAbsolutePath();
+      Map<String, String> serviceArgs = new HashMap<>(txTimeoutArguments(txDefaulTimeoutService));
+      serviceArgs.put("done.dir", tmpDir);
+      ServiceManager serviceManager = appManager.getServiceManager(AppWithCustomTx.SERVICE).start(serviceArgs);
       WorkerManager notxWorkerManager = appManager.getWorkerManager(AppWithCustomTx.WORKER_NOTX)
         .start(txTimeoutArguments(txDefaulTimeoutWorker));
       WorkerManager txWorkerManager = appManager.getWorkerManager(AppWithCustomTx.WORKER_TX)
@@ -1290,14 +1294,18 @@ public class TestFrameworkTestRun extends TestFrameworkTestBase {
         .start(txTimeoutArguments(txDefaulTimeoutSpark));
 
       serviceManager.waitForRun(ProgramRunStatus.RUNNING, 10, TimeUnit.SECONDS);
-      callServicePut(serviceManager.getServiceURL(), "tx", "hello");
+
+      callServicePut(serviceManager.getServiceURL(), "tx", "hello", 200, new File(tmpDir, "txhello").getAbsolutePath());
       callServicePut(serviceManager.getServiceURL(), "tx", AppWithCustomTx.FAIL_PRODUCER, 200);
       callServicePut(serviceManager.getServiceURL(), "tx", AppWithCustomTx.FAIL_CONSUMER, 500);
-      callServicePut(serviceManager.getServiceURL(), "notx", "hello");
+      callServicePut(serviceManager.getServiceURL(), "notx", "hello", 200,
+                     new File(tmpDir, "notxhello").getAbsolutePath());
       callServicePut(serviceManager.getServiceURL(), "notx", AppWithCustomTx.FAIL_PRODUCER, 200);
       callServicePut(serviceManager.getServiceURL(), "notx", AppWithCustomTx.FAIL_CONSUMER, 500);
+
+
       serviceManager.stop();
-      serviceManager.waitForRun(ProgramRunStatus.KILLED, 10, TimeUnit.SECONDS);
+      serviceManager.waitForStopped(10, TimeUnit.SECONDS);
 
       txMRManager.waitForRun(ProgramRunStatus.FAILED, 10L, TimeUnit.SECONDS);
       notxMRManager.waitForRun(ProgramRunStatus.FAILED, 10L, TimeUnit.SECONDS);
@@ -1486,11 +1494,8 @@ public class TestFrameworkTestRun extends TestFrameworkTestBase {
         String row = (String) writeToValidate[0];
         String column = (String) writeToValidate[1];
         String expectedValue = writeToValidate[2] == null ? null : String.valueOf(writeToValidate[2]);
-        Tasks.waitFor(expectedValue,
-                     () -> t.get(new Get(row, column)).getString(column),
-                     30L, TimeUnit.SECONDS, 1, TimeUnit.SECONDS,
-                      String.format("Error getting value for %s.%s. Expected: %s, Got: %s",
-                                    row, column, expectedValue, t.get(new Get(row, column)).getString(column)));
+        Assert.assertEquals("Error for " + row + "." + column,
+                            expectedValue, t.get(new Get(row, column)).getString(column));
       }
 
     } finally {
@@ -2099,12 +2104,18 @@ public class TestFrameworkTestRun extends TestFrameworkTestBase {
     }
   }
 
-  private String callServicePut(URL serviceURL, String path, String body) throws IOException {
+  private String callServicePut(URL serviceURL, String path, String body) throws Exception {
     return callServicePut(serviceURL, path, body, 200);
   }
 
   @Nullable
-  private String callServicePut(URL serviceURL, String path, String body, Integer expectedStatus) throws IOException {
+  private String callServicePut(URL serviceURL, String path, String body, Integer expectedStatus) throws Exception {
+    return callServicePut(serviceURL, path, body, expectedStatus, null);
+  }
+
+  @Nullable
+  private String callServicePut(URL serviceURL, String path, String body, Integer expectedStatus,
+                                String doneFilePath) throws Exception {
     HttpURLConnection connection = (HttpURLConnection) new URL(serviceURL.toString() + path).openConnection();
     try {
       connection.setDoOutput(true);
@@ -2121,6 +2132,11 @@ public class TestFrameworkTestRun extends TestFrameworkTestBase {
         return new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8)).readLine();
       }
     } finally {
+      if (doneFilePath != null) {
+        File doneFile = new File(doneFilePath);
+        LOG.info("Checking for doneFilePath: {}", doneFilePath);
+        Tasks.waitFor(true, doneFile::exists, 30, TimeUnit.SECONDS);
+      }
       connection.disconnect();
     }
   }
