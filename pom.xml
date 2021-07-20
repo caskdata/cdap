@@ -146,7 +146,7 @@
     <jetty.version>6.1.22</jetty.version>
     <jetty8.version>8.1.15.v20140411</jetty8.version>
     <jline.version>2.12</jline.version>
-    <junit.version>4.11</junit.version>
+    <junit.version>4.13.1</junit.version>
     <kafka.version>0.8.2.2</kafka.version>
     <leveldb.version>0.12</leveldb.version>
     <logback.version>1.0.9</logback.version>
