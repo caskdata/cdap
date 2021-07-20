@@ -19,18 +19,15 @@ package io.cdap.cdap.internal.app.worker;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.inject.Singleton;
-import io.cdap.cdap.api.service.worker.RunnableTaskContext;
 import io.cdap.cdap.api.service.worker.RunnableTaskRequest;
 import io.cdap.cdap.common.conf.CConfiguration;
 import io.cdap.cdap.common.conf.Constants;
-import io.cdap.cdap.common.http.AbstractBodyConsumer;
 import io.cdap.cdap.proto.BasicThrowable;
 import io.cdap.cdap.proto.codec.BasicThrowableCodec;
 import io.cdap.common.http.HttpRequest;
 import io.cdap.common.http.HttpRequests;
 import io.cdap.common.http.HttpResponse;
 import io.cdap.http.AbstractHttpHandler;
-import io.cdap.http.BodyConsumer;
 import io.cdap.http.BodyProducer;
 import io.cdap.http.HttpHandler;
 import io.cdap.http.HttpResponder;
@@ -43,8 +40,6 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -53,7 +48,6 @@ import javax.annotation.Nullable;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
-import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 
@@ -89,7 +83,7 @@ public class TaskWorkerHttpHandlerInternal extends AbstractHttpHandler {
           stopper.accept(s);
         }
       } else {
-        inflightRequests.decrementAndGet();
+        inflightRequests.set(0);
       }
     };
   }
