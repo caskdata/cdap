@@ -45,6 +45,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -144,18 +145,34 @@ class CloudKMSClient implements Closeable {
     String parent = String.format("projects/%s/locations/%s", projectId, LOCATION_ID);
     LOG.debug("Creating key ring with id {}.", keyringId);
 
+    // Check if key exists before attempting to create one. This provides for the case where a keyring is provided, but
+    // the authenticating account does not have permission to create keyrings on the target kms project.
+    KeyRing keyRing = null;
     try {
-      cloudKMS.projects().locations().keyRings()
-        .create(parent, new KeyRing())
-        .setKeyRingId(keyringId)
-        .execute();
+      keyRing = cloudKMS.projects().locations().keyRings()
+              .get(keyringId)
+              .execute();
     } catch (GoogleJsonResponseException e) {
-      // if key ring already exists, then do not throw any exception.
-      if (e.getDetails() != null && e.getDetails().getCode() == 409) {
-        LOG.trace(String.format("Key ring %s already exists", keyringId));
-        return;
+      if (e.getDetails() == null || e.getDetails().getCode() != 404) {
+        // If the call fails, then we should proceed to attempt creation
+        throw new IOException(String.format("Exception occurred while checking for key ring %s", keyringId), e);
       }
-      throw new IOException(String.format("Exception occurred while creating key ring %s", keyringId), e);
+    }
+
+    if (Objects.isNull(keyRing)) {
+      try {
+        cloudKMS.projects().locations().keyRings()
+                .create(parent, new KeyRing())
+                .setKeyRingId(keyringId)
+                .execute();
+      } catch (GoogleJsonResponseException e) {
+        // if key ring already exists, then do not throw any exception.
+        if (e.getDetails() != null && e.getDetails().getCode() == 409) {
+          LOG.trace(String.format("Key ring %s already exists", keyringId));
+          return;
+        }
+        throw new IOException(String.format("Exception occurred while creating key ring %s", keyringId), e);
+      }
     }
   }
 
