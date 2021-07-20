@@ -41,7 +41,7 @@ understanding of Docker behavior and commands.
 
 - Build the Docker image: (from the cdap/ root directory)::
 
-    docker build caskdata/cdap-standalone .
+    docker build -t caskdata/cdap-sandbox cdap-distributions/src
 
 - Run a Docker container from the new image::
 
